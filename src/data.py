@@ -7,12 +7,13 @@ import numpy as np
 from gtda.time_series import TakensEmbedding
 from gtda.homology import VietorisRipsPersistence
 from gtda.diagrams import PersistenceEntropy
-import joblib
+from sklearn.model_selection import train_test_split
 
-from config import EEG_PATH, ID_PATH, INTERVAL_PATH, POINT_CLOUD_PATH, LABEL_PATH
+from config import SEED
+from config import EEG_PATH
 from config import N_EEG_CHANNELS
 from config import TIME_DELAY, DIMENSION, STRIDE
-from config import N_SAMPLES, TARGET, HOMOLOGY_DIMENSIONS
+from config import N_SAMPLES, TARGET, HOMOLOGY_DIMENSIONS, TEST_SIZE
 
 
 def read_raw_data(n_people=None):
@@ -30,23 +31,7 @@ def read_raw_data(n_people=None):
         raw_data.append((idx, raw))
     return raw_data
 
-def read_processed_data(rewrite=True):
-    if not rewrite and os.path.isfile(ID_PATH):
-        id_col = joblib.load(ID_PATH)
-        interval_stacked = joblib.load(INTERVAL_PATH)
-        point_cloud_stacked = joblib.load(POINT_CLOUD_PATH)
-        label_col = joblib.load(LABEL_PATH)
-
-        df = pd.DataFrame({
-            'id': id_col,
-            'label': label_col
-        })
-
-        df['interval'] = pd.Series(list(interval_stacked), index=df.index)
-        df['point_cloud'] = pd.Series(list(point_cloud_stacked), index=df.index)
-
-        return df
-    
+def get_processed_data():    
     raw_data = read_raw_data()
 
     all_ids = []
@@ -74,19 +59,10 @@ def read_processed_data(rewrite=True):
     TE.fit([])
     df['point_cloud'] = df.apply(lambda row: TE.transform(row['interval']), axis=1)
     df = df[['id', 'interval', 'point_cloud', 'label']]
-
-    print("OK")
-
-    joblib.dump(df['id'], ID_PATH)
-    interval_stacked = np.stack(df['interval'].to_numpy())
-    joblib.dump(interval_stacked, INTERVAL_PATH)
-    point_cloud_stacked = np.stack(df['point_cloud'].to_numpy())
-    joblib.dump(point_cloud_stacked, POINT_CLOUD_PATH)
-    joblib.dump(df['label'], LABEL_PATH)
     return df
 
-def read_training_data(rewrite=True):
-    df = read_processed_data(rewrite)
+def get_training_data():
+    df = get_processed_data()
 
     df = df.drop(columns=['interval'])
     df = df.sample(N_SAMPLES)
@@ -105,11 +81,12 @@ def read_training_data(rewrite=True):
     features = PE.fit_transform(diagrams)
     features_df = pd.DataFrame(features, columns=[f'PE_{i}' for i in range(features.shape[1])])
     df = pd.concat([df, features_df], axis=1)
-
+    
+    df = df.drop(columns=['point_cloud'])
     return df
 
 def split_training_data(df):
     X = df.drop(columns=['label', 'ASMR'])
     y = df[TARGET]
-
-    #return X_train, X_test, y_train, y_test
+    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=TEST_SIZE, random_state=SEED)
+    return X_train, X_val, y_train, y_val
