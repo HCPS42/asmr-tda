@@ -4,15 +4,25 @@ import os
 import warnings
 import pandas as pd
 import numpy as np
+from gtda.time_series import TakensEmbedding
+from gtda.homology import VietorisRipsPersistence
+from gtda.diagrams import PersistenceEntropy
+import joblib
 
-from config import DATA_PATH
+from config import EEG_PATH, ID_PATH, INTERVAL_PATH, POINT_CLOUD_PATH, LABEL_PATH
+from config import N_EEG_CHANNELS
+from config import TIME_DELAY, DIMENSION, STRIDE
+from config import N_SAMPLES, TARGET, HOMOLOGY_DIMENSIONS
 
 
-def read_raw_data():
-    file_paths = glob.glob(f'{DATA_PATH}/*.set')
-    file_names = [os.path.basename(file).replace('P', 'P') for file in file_paths]
+def read_raw_data(n_people=None):
+    file_paths = glob.glob(f'{EEG_PATH}/*.set')
+    filenames = [os.path.basename(file).replace('P', 'P') for file in file_paths]
+    if n_people is None:
+        n_people = len(filenames)
+    filenames = filenames[:n_people]
     raw_data = []
-    for path, filename in zip(file_paths, file_names):
+    for path, filename in zip(file_paths, filenames):
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore')
             raw = mne.read_epochs_eeglab(path, verbose=False)
@@ -20,16 +30,34 @@ def read_raw_data():
         raw_data.append((idx, raw))
     return raw_data
 
-def process_raw_data(raw_data):
+def read_processed_data(rewrite=True):
+    if not rewrite and os.path.isfile(ID_PATH):
+        id_col = joblib.load(ID_PATH)
+        interval_stacked = joblib.load(INTERVAL_PATH)
+        point_cloud_stacked = joblib.load(POINT_CLOUD_PATH)
+        label_col = joblib.load(LABEL_PATH)
+
+        df = pd.DataFrame({
+            'id': id_col,
+            'label': label_col
+        })
+
+        df['interval'] = pd.Series(list(interval_stacked), index=df.index)
+        df['point_cloud'] = pd.Series(list(point_cloud_stacked), index=df.index)
+
+        return df
+    
+    raw_data = read_raw_data()
+
     all_ids = []
-    all_segments = []
+    all_intervals = []
     all_labels = []
 
     for idx, raw in raw_data:
         ids = [idx] * len(raw)
 
-        segments = raw.get_data(copy=True)[:, :-3] # Exclude non-EEG channels
-        segments = [segments[i] for i in range(segments.shape[0])]
+        intervals = raw.get_data(copy=True)[:, :-3] # Exclude non-EEG channels
+        intervals = [intervals[i] for i in range(intervals.shape[0])]
 
         inverse_event_id = {v: k[k.find('B'):k.find(')')+1] for k, v in raw.event_id.items()}
         inverse_event_id_func = np.vectorize(inverse_event_id.get)
@@ -37,7 +65,51 @@ def process_raw_data(raw_data):
         labels = inverse_event_id_func(labels)
 
         all_ids.extend(ids)
-        all_segments.extend(segments)
+        all_intervals.extend(intervals)
         all_labels.extend(labels)
         
-    return pd.DataFrame({'id': all_ids, 'segment': all_segments, 'label': all_labels})
+    df = pd.DataFrame({'id': all_ids, 'interval': all_intervals, 'label': all_labels})
+
+    TE = TakensEmbedding(time_delay=TIME_DELAY, dimension=DIMENSION, stride=STRIDE)
+    TE.fit([])
+    df['point_cloud'] = df.apply(lambda row: TE.transform(row['interval']), axis=1)
+    df = df[['id', 'interval', 'point_cloud', 'label']]
+
+    print("OK")
+
+    joblib.dump(df['id'], ID_PATH)
+    interval_stacked = np.stack(df['interval'].to_numpy())
+    joblib.dump(interval_stacked, INTERVAL_PATH)
+    point_cloud_stacked = np.stack(df['point_cloud'].to_numpy())
+    joblib.dump(point_cloud_stacked, POINT_CLOUD_PATH)
+    joblib.dump(df['label'], LABEL_PATH)
+    return df
+
+def read_training_data(rewrite=True):
+    df = read_processed_data(rewrite)
+
+    df = df.drop(columns=['interval'])
+    df = df.sample(N_SAMPLES)
+    df = df.explode('point_cloud').reset_index(drop=True)
+    df['channel'] = df.index % N_EEG_CHANNELS
+    df['ASMR'] = np.char.find(df['label'].values.astype(str), 'ASMR') >= 0
+
+    point_clouds = np.stack(df['point_cloud'].values)
+
+    VR = VietorisRipsPersistence(homology_dimensions=HOMOLOGY_DIMENSIONS)
+    diagrams = VR.fit_transform(point_clouds)
+
+    # TODO: add features https://giotto-ai.github.io/gtda-docs/latest/modules/generated/diagrams/features/gtda.diagrams.Amplitude.html
+    
+    PE = PersistenceEntropy()
+    features = PE.fit_transform(diagrams)
+    features_df = pd.DataFrame(features, columns=[f'PE_{i}' for i in range(features.shape[1])])
+    df = pd.concat([df, features_df], axis=1)
+
+    return df
+
+def split_training_data(df):
+    X = df.drop(columns=['label', 'ASMR'])
+    y = df[TARGET]
+
+    #return X_train, X_test, y_train, y_test
