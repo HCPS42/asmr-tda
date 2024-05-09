@@ -20,7 +20,7 @@ STRIDE = 10
 # Training settings
 
 N_SAMPLES = 10
-TARGET = 'ASMR'
+TARGET = 'label'
 TEST_SIZE = 0.1
 
 HOMOLOGY_DIMENSIONS = [0, 1, 2]
