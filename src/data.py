@@ -7,14 +7,16 @@ import numpy as np
 from gtda.time_series import TakensEmbedding
 from gtda.homology import VietorisRipsPersistence
 from gtda.diagrams import PersistenceEntropy
-from sklearn.model_selection import train_test_split
+import hashlib
+import pickle
 
-from config import SEED
-from config import EEG_PATH
-from config import N_EEG_CHANNELS
-from config import TIME_DELAY, DIMENSION, STRIDE
-from config import N_SAMPLES, TARGET, HOMOLOGY_DIMENSIONS, TEST_SIZE
-
+from config import (
+    SEED,
+    DATA_PATH, EEG_PATH, ALL_EEG_CHANNELS,
+    TIME_DELAY, DIMENSION, STRIDE,
+    CHANNELS, ALL_TARGETS, TARGET, N_INTERVALS_PER_PERSON_PER_CLASS, TRAIN_VAL_SAME_PEOPLE, N_PEOPLE,
+    HOMOLOGY_DIMENSIONS
+)
 
 def read_raw_data(n_people=None):
     file_paths = glob.glob(f'{EEG_PATH}/*.set')
@@ -61,32 +63,126 @@ def get_processed_data():
     df = df[['id', 'interval', 'point_cloud', 'label']]
     return df
 
-def get_training_data():
-    df = get_processed_data()
-
-    df = df.drop(columns=['interval'])
-    df = df.sample(N_SAMPLES)
+def prepare_data(df, step, VR, PE):
     df = df.explode('point_cloud').reset_index(drop=True)
-    df['channel'] = df.index % N_EEG_CHANNELS
-    df['ASMR'] = np.char.find(df['label'].values.astype(str), 'ASMR') >= 0
+    df['channel'] = np.tile(ALL_EEG_CHANNELS, df.shape[0] // len(ALL_EEG_CHANNELS))
+    df = df[df['channel'].isin(CHANNELS)].reset_index(drop=True)
 
     point_clouds = np.stack(df['point_cloud'].values)
+    df = df.drop(columns=['point_cloud'])
 
-    VR = VietorisRipsPersistence(homology_dimensions=HOMOLOGY_DIMENSIONS)
-    diagrams = VR.fit_transform(point_clouds)
+    if step == 'train':
+        diagrams = VR.fit_transform(point_clouds)
+        PE_features = PE.fit_transform(diagrams)
+
+    elif step == 'val':
+        diagrams = VR.transform(point_clouds)
+        PE_features = PE.transform(diagrams)
+
+    PE_features_df = pd.DataFrame(PE_features, columns=[f'PE_{i}' for i in range(PE_features.shape[1])])
+    df = pd.concat([df, PE_features_df], axis=1)
 
     # TODO: add features https://giotto-ai.github.io/gtda-docs/latest/modules/generated/diagrams/features/gtda.diagrams.Amplitude.html
-    
-    PE = PersistenceEntropy()
-    features = PE.fit_transform(diagrams)
-    features_df = pd.DataFrame(features, columns=[f'PE_{i}' for i in range(features.shape[1])])
-    df = pd.concat([df, features_df], axis=1)
-    
-    df = df.drop(columns=['point_cloud'])
+
     return df
 
-def split_training_data(df):
-    X = df.drop(columns=['label', 'ASMR'])
-    y = df[TARGET]
-    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=TEST_SIZE, random_state=SEED)
+def generate_filename(step):
+    channels_str = str(CHANNELS).replace(' ', '')
+    tvsp = 'same' if TRAIN_VAL_SAME_PEOPLE else 'diff'
+    concat_str = f"{TIME_DELAY}_{DIMENSION}_{STRIDE}_{channels_str}_{TARGET}_{N_INTERVALS_PER_PERSON_PER_CLASS}_{tvsp}_{N_PEOPLE}"
+    hash_object = hashlib.sha256(concat_str.encode())
+    hash_integer = int(hash_object.hexdigest(), 16)
+    filename = f'{DATA_PATH}/df_{step}_{hash_integer}.pkl'
+    return filename
+
+def get_training_data(df=None):
+    train_file = generate_filename('train')
+    val_file = generate_filename('val')
+
+    if os.path.exists(train_file):
+        df_train = pd.read_pickle(train_file)
+        df_val = pd.read_pickle(val_file)
+    else:
+        if df is None:
+            df = get_processed_data()
+        else:
+            df = df.copy(deep=True)
+
+        df = df.drop(columns=['interval'])
+        df['ASMR'] = np.char.find(df['label'].values.astype(str), 'ASMR') >= 0
+
+        np.random.seed(SEED)
+
+        if TRAIN_VAL_SAME_PEOPLE:
+            unique_people = df['id'].unique()
+            selected_people = np.random.choice(unique_people, size=N_PEOPLE, replace=False)
+
+            df_train = pd.DataFrame()
+            df_val = pd.DataFrame()
+
+            for person in selected_people:
+                df_person = df[df['id'] == person]
+                
+                grouped = df_person.groupby(TARGET)
+                df_sampled = pd.DataFrame()
+                
+                for _, group in grouped:
+                    if len(group) < 2 * N_INTERVALS_PER_PERSON_PER_CLASS:
+                        raise RuntimeError('Not enough intervals')
+                    
+                    sample = group.sample(2 * N_INTERVALS_PER_PERSON_PER_CLASS, replace=False)
+                    
+                    df_sampled = pd.concat([df_sampled, sample], ignore_index=True)
+                    train, val = np.split(sample, 2)
+                        
+                    df_train = pd.concat([df_train, train], ignore_index=True)
+                    df_val = pd.concat([df_val, val], ignore_index=True)
+
+        else:
+            unique_people = df['id'].unique()
+            np.random.shuffle(unique_people)
+            
+            train_people = unique_people[:N_PEOPLE]
+            val_people = unique_people[N_PEOPLE:N_PEOPLE * 2]
+            
+            df_train = pd.DataFrame()
+            df_val = pd.DataFrame()
+            
+            for person in train_people:
+                df_person = df[df['id'] == person]
+                grouped = df_person.groupby(TARGET)
+                
+                for _, group in grouped:
+                    if len(group) < N_INTERVALS_PER_PERSON_PER_CLASS:
+                        raise RuntimeError(f'Not enough intervals')
+                    
+                    train_sample = group.sample(N_INTERVALS_PER_PERSON_PER_CLASS, replace=False)
+                    df_train = pd.concat([df_train, train_sample], ignore_index=True)
+            
+            for person in val_people:
+                df_person = df[df['id'] == person]
+                grouped = df_person.groupby(TARGET)
+                
+                for _, group in grouped:
+                    if len(group) < N_INTERVALS_PER_PERSON_PER_CLASS:
+                        raise RuntimeError(f'Not enough intervals')
+                    
+                    val_sample = group.sample(N_INTERVALS_PER_PERSON_PER_CLASS, replace=False)
+                    df_val = pd.concat([df_val, val_sample], ignore_index=True)
+
+        VR = VietorisRipsPersistence(homology_dimensions=HOMOLOGY_DIMENSIONS)
+        PE = PersistenceEntropy()
+
+        df_train = prepare_data(df_train, 'train', VR, PE)
+        df_val = prepare_data(df_val, 'val', VR, PE)
+
+        df_train.to_pickle(train_file)
+        df_val.to_pickle(val_file)
+
+    X_train = df_train.drop(columns=ALL_TARGETS)
+    y_train = df_train[TARGET]
+
+    X_val = df_val.drop(columns=ALL_TARGETS)
+    y_val = df_val[TARGET]
+
     return X_train, X_val, y_train, y_val
