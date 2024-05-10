@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 from gtda.time_series import TakensEmbedding
 from gtda.homology import VietorisRipsPersistence
-from gtda.diagrams import PersistenceEntropy
+from gtda.diagrams import Amplitude, PersistenceEntropy, NumberOfPoints, ComplexPolynomial
 import hashlib
 import pickle
 
@@ -63,7 +63,14 @@ def get_processed_data():
     df = df[['id', 'interval', 'point_cloud', 'label']]
     return df
 
-def prepare_data(df, step, VR, PE):
+def prepare_data(df, 
+                 step, 
+                 vietoris_rips,
+                 amplitude,
+                 persistence_entropy,
+                 number_of_points,
+                 complex_polynomial):
+    
     df = df.explode('point_cloud').reset_index(drop=True)
     df['channel'] = np.tile(ALL_EEG_CHANNELS, df.shape[0] // len(ALL_EEG_CHANNELS))
     df = df[df['channel'].isin(CHANNELS)].reset_index(drop=True)
@@ -72,17 +79,35 @@ def prepare_data(df, step, VR, PE):
     df = df.drop(columns=['point_cloud'])
 
     if step == 'train':
-        diagrams = VR.fit_transform(point_clouds)
-        PE_features = PE.fit_transform(diagrams)
-
+        diagrams = vietoris_rips.fit_transform(point_clouds)
+        amplitude_features = amplitude.fit_transform(diagrams)
+        persistence_entropy_features = persistence_entropy.fit_transform(diagrams)
+        betti_features = number_of_points.fit_transform(diagrams)
+        polynomial_features = complex_polynomial.fit_transform(diagrams)
     elif step == 'val':
-        diagrams = VR.transform(point_clouds)
-        PE_features = PE.transform(diagrams)
+        diagrams = vietoris_rips.transform(point_clouds)
+        amplitude_features = amplitude.transform(diagrams)
+        persistence_entropy_features = persistence_entropy.transform(diagrams)
+        betti_features = number_of_points.transform(diagrams)
+        polynomial_features = complex_polynomial.transform(diagrams)
 
-    PE_features_df = pd.DataFrame(PE_features, columns=[f'PE_{i}' for i in range(PE_features.shape[1])])
-    df = pd.concat([df, PE_features_df], axis=1)
+    amplitude_features_df = pd.DataFrame(amplitude_features,
+                                         columns=[f'amplitude_{i}' for i in range(amplitude_features.shape[1])])
 
-    # TODO: add features https://giotto-ai.github.io/gtda-docs/latest/modules/generated/diagrams/features/gtda.diagrams.Amplitude.html
+    persistence_entropy_features_df = pd.DataFrame(persistence_entropy_features,
+                                                   columns=[f'entropy_{i}' for i in range(persistence_entropy_features.shape[1])])
+
+    betti_features_df = pd.DataFrame(betti_features,
+                                     columns=[f'Betti_{i}' for i in range(betti_features.shape[1])])
+
+    polynomial_features_df = pd.DataFrame(polynomial_features,
+                                          columns=[f'polynomial_{i}' for i in range(polynomial_features.shape[1])])
+
+    df = pd.concat([df,
+                    amplitude_features_df,
+                    persistence_entropy_features_df,
+                    betti_features_df,
+                    polynomial_features_df], axis=1)
 
     return df
 
@@ -170,11 +195,27 @@ def get_training_data(df=None):
                     val_sample = group.sample(N_INTERVALS_PER_PERSON_PER_CLASS, replace=False)
                     df_val = pd.concat([df_val, val_sample], ignore_index=True)
 
-        VR = VietorisRipsPersistence(homology_dimensions=HOMOLOGY_DIMENSIONS)
-        PE = PersistenceEntropy()
+        vietoris_rips = VietorisRipsPersistence(homology_dimensions=HOMOLOGY_DIMENSIONS)
+        amplitude = Amplitude()
+        persistence_entropy = PersistenceEntropy()
+        number_of_points = NumberOfPoints()
+        complex_polynomial = ComplexPolynomial()
 
-        df_train = prepare_data(df_train, 'train', VR, PE)
-        df_val = prepare_data(df_val, 'val', VR, PE)
+        df_train = prepare_data(df_train, 
+                                'train',
+                                vietoris_rips,
+                                amplitude,
+                                persistence_entropy,
+                                number_of_points,
+                                complex_polynomial)
+
+        df_val = prepare_data(df_val,
+                              'val',
+                              vietoris_rips,
+                              amplitude,
+                              persistence_entropy,
+                              number_of_points,
+                              complex_polynomial)
 
         df_train.to_pickle(train_file)
         df_val.to_pickle(val_file)
