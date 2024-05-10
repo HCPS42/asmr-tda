@@ -1,3 +1,9 @@
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, AdaBoostClassifier
+from sklearn.naive_bayes import GaussianNB
+
 # Random seed
 
 SEED = 42
@@ -7,6 +13,8 @@ SEED = 42
 DATA_PATH = '../data'
 EEG_PATH = f'{DATA_PATH}/osfstorage-archive/EEG Data'
 IMAGE_PATH = '../images'
+EXPERIMENTS_RESULTS_FILE = 'results.pkl'
+
 INTERACTIVE = False
 
 # EEG settings
@@ -28,15 +36,37 @@ STRIDE = 10
 
 # Training settings
 
-#CHANNELS = ['T7', 'T8', 'TP7', 'TP8', 'P3', 'P4', 'Pz', 'O1', 'O2', 'F3', 'F4', 'Fpz']
-CHANNELS = ['Fp1']
+HOMOLOGY_DIMENSIONS = [0, 1, 2]
 
-TARGET_ID = 1
 ALL_TARGETS = ['label', 'ASMR']
-
+TARGET_ID = 1
 TARGET = ALL_TARGETS[TARGET_ID]
+
+CHANNELS = ALL_EEG_CHANNELS
+
 N_INTERVALS_PER_PERSON_PER_CLASS = 10
 TRAIN_VAL_SAME_PEOPLE = True
 N_PEOPLE = 1
 
-HOMOLOGY_DIMENSIONS = [0, 1, 2]
+ALL_CLASSIFIERS = {
+    'LogisticRegression': LogisticRegression(random_state=SEED),
+    'SVC': SVC(probability=True),
+    'KNeighbors': KNeighborsClassifier(),
+    'RandomForest': RandomForestClassifier(random_state=SEED),
+    'GradientBoosting': GradientBoostingClassifier(random_state=SEED),
+    'AdaBoost': AdaBoostClassifier(algorithm='SAMME', random_state=SEED),
+    'GaussianNB': GaussianNB()
+}
+CLASSIFIER_NAME = 'LogisticRegression'
+CLASSIFIER = ALL_CLASSIFIERS[CLASSIFIER_NAME]
+
+# Experiment goal
+
+ALL_EXPERIMENT_GOALS = [
+    'Configure embeddings',
+    'Fix some pairs of (train, validation) sets'
+    'Compare classifiers',
+    'Determine the most informative channels'
+]
+EXPERIMENT_GOAL_ID = 0
+EXPERIMENT_GOAL = ALL_EXPERIMENT_GOALS[EXPERIMENT_GOAL_ID]
