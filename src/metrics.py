@@ -4,6 +4,7 @@ import os
 from sklearn.metrics import accuracy_score, roc_auc_score, precision_score, recall_score, f1_score, confusion_matrix
 from sklearn.preprocessing import label_binarize
 from sklearn.utils.multiclass import type_of_target
+import time
 
 from config import (
     EXPERIMENTS_RESULTS_FILE,
@@ -18,6 +19,7 @@ def compute_metrics(step, y_true, y_pred, y_probs):
     average_type = 'binary' if type_of_target(y_true) == 'binary' else 'macro'
 
     metrics = {
+        f'{step} Samples': y_true.shape[0],
         f'{step} Accuracy': accuracy_score(y_true, y_pred),
         f'{step} Precision': precision_score(y_true, y_pred, average=average_type),
         f'{step} Recall': recall_score(y_true, y_pred, average=average_type),
@@ -34,7 +36,10 @@ def compute_metrics(step, y_true, y_pred, y_probs):
 
 def print_metrics(metrics):
     for key, value in metrics.items():
-        print(f'{key}: {value:.2f}')
+        if isinstance(value, int):
+            print(f'{key}: \t{value}')
+        elif isinstance(value, float):
+            print(f'{key}: \t{value:.2f}')
 
 def save_result_to_file(result):
     filename = EXPERIMENTS_RESULTS_FILE
@@ -46,13 +51,13 @@ def save_result_to_file(result):
     results_df = pd.concat([results_df, result_df], ignore_index=True)
     results_df.to_pickle(filename)
 
-def evaluate_pipeline(pipeline, X_train, X_val, y_train, y_val, save_result=False):
+def evaluate_pipeline(pipeline, X_train, X_val, y_train, y_val, execution_time, save_result=False):
     y_pred_train = pipeline.predict(X_train)
     if type_of_target(y_train) == 'binary':
         y_probs_train = pipeline.predict_proba(X_train)[:, 1]
     else:
         y_probs_train = pipeline.predict_proba(X_train)
-    train_metrics = compute_metrics('Train', y_train, y_pred_train, y_probs_train)
+    train_metrics = compute_metrics('Training', y_train, y_pred_train, y_probs_train)
 
     y_pred_val = pipeline.predict(X_val)
     if type_of_target(y_val) == 'binary':
@@ -65,6 +70,8 @@ def evaluate_pipeline(pipeline, X_train, X_val, y_train, y_val, save_result=Fals
 
     print_metrics(metrics)
 
+    print(f'\nExecution Time: {execution_time:.2f} seconds')
+
     if save_result:
         params = {
             'Time Delay': TIME_DELAY,
@@ -76,7 +83,8 @@ def evaluate_pipeline(pipeline, X_train, X_val, y_train, y_val, save_result=Fals
             'Train Validation Same People': TRAIN_VAL_SAME_PEOPLE,
             'Number of People': N_PEOPLE,
             'Classifier': CLASSIFIER_NAME,
-            'Experiment Goal': EXPERIMENT_GOAL
+            'Experiment Goal': EXPERIMENT_GOAL,
+            'Execution Time': execution_time
         }
         
         result = {**params, **metrics}
