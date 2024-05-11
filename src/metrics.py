@@ -74,8 +74,8 @@ def evaluate_pipeline(pipeline, X_train, X_val, y_train, y_val, execution_time, 
 
     if save_result:
         params = {
-            'Time Delay': TIME_DELAY,
             'Dimension': DIMENSION,
+            'Time Delay': TIME_DELAY,
             'Stride': STRIDE,
             'Channels': CHANNELS,
             'Target': TARGET,
