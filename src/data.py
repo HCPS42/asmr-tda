@@ -22,8 +22,15 @@ def read_raw_data(n_people=None):
     file_paths = glob.glob(f'{EEG_PATH}/*.set')
     filenames = [os.path.basename(file).replace('P', 'P') for file in file_paths]
     if n_people is None:
+        if TRAIN_VAL_SAME_PEOPLE:
+            n_people = N_PEOPLE
+        else:
+            n_people = 2 * N_PEOPLE
+    if n_people == -1:
         n_people = len(filenames)
-    filenames = filenames[:n_people]
+    else:
+        np.random.seed(SEED)
+        filenames = np.random.choice(filenames, size=n_people, replace=False)
     raw_data = []
     for path, filename in zip(file_paths, filenames):
         with warnings.catch_warnings():
@@ -33,8 +40,9 @@ def read_raw_data(n_people=None):
         raw_data.append((idx, raw))
     return raw_data
 
-def get_processed_data():    
-    raw_data = read_raw_data()
+def get_processed_data(raw_data=None):
+    if raw_data is None:
+        raw_data = read_raw_data()
 
     all_ids = []
     all_intervals = []
@@ -68,8 +76,7 @@ def prepare_data(df,
                  vietoris_rips,
                  amplitude,
                  persistence_entropy,
-                 number_of_points,
-                 complex_polynomial):
+                 number_of_points):
     
     df = df.explode('point_cloud').reset_index(drop=True)
     df['channel'] = np.tile(ALL_EEG_CHANNELS, df.shape[0] // len(ALL_EEG_CHANNELS))
@@ -83,13 +90,11 @@ def prepare_data(df,
         amplitude_features = amplitude.fit_transform(diagrams)
         persistence_entropy_features = persistence_entropy.fit_transform(diagrams)
         betti_features = number_of_points.fit_transform(diagrams)
-        polynomial_features = complex_polynomial.fit_transform(diagrams)
     elif step == 'val':
         diagrams = vietoris_rips.transform(point_clouds)
         amplitude_features = amplitude.transform(diagrams)
         persistence_entropy_features = persistence_entropy.transform(diagrams)
         betti_features = number_of_points.transform(diagrams)
-        polynomial_features = complex_polynomial.transform(diagrams)
 
     amplitude_features_df = pd.DataFrame(amplitude_features,
                                          columns=[f'amplitude_{i}' for i in range(amplitude_features.shape[1])])
@@ -100,14 +105,10 @@ def prepare_data(df,
     betti_features_df = pd.DataFrame(betti_features,
                                      columns=[f'Betti_{i}' for i in range(betti_features.shape[1])])
 
-    polynomial_features_df = pd.DataFrame(polynomial_features,
-                                          columns=[f'polynomial_{i}' for i in range(polynomial_features.shape[1])])
-
     df = pd.concat([df,
                     amplitude_features_df,
                     persistence_entropy_features_df,
-                    betti_features_df,
-                    polynomial_features_df], axis=1)
+                    betti_features_df], axis=1)
 
     return df
 
@@ -199,23 +200,20 @@ def get_training_data(df=None):
         amplitude = Amplitude()
         persistence_entropy = PersistenceEntropy()
         number_of_points = NumberOfPoints()
-        complex_polynomial = ComplexPolynomial()
 
         df_train = prepare_data(df_train, 
                                 'train',
                                 vietoris_rips,
                                 amplitude,
                                 persistence_entropy,
-                                number_of_points,
-                                complex_polynomial)
+                                number_of_points)
 
         df_val = prepare_data(df_val,
                               'val',
                               vietoris_rips,
                               amplitude,
                               persistence_entropy,
-                              number_of_points,
-                              complex_polynomial)
+                              number_of_points)
 
         df_train.to_pickle(train_file)
         df_val.to_pickle(val_file)
