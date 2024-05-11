@@ -13,9 +13,10 @@ SEED = 42
 DATA_PATH = '../data'
 EEG_PATH = f'{DATA_PATH}/osfstorage-archive/EEG Data'
 IMAGE_PATH = '../images'
+EMBEDDING_STATISTICS = 'embedding_stats.pkl'
 EXPERIMENTS_RESULTS_FILE = 'results.pkl'
 
-INTERACTIVE = False
+INTERACTIVE = True
 
 # EEG settings
 
@@ -30,8 +31,8 @@ ALL_EEG_CHANNELS = ['Fp1', 'AF7', 'AF3', 'F1', 'F3', 'F5', 'F7', 'FT7',
 
 # Embedding settings
 
-TIME_DELAY = 10
-DIMENSION = 3
+DIMENSION = 6
+TIME_DELAY = 15
 STRIDE = 10
 
 # Training settings
@@ -44,7 +45,7 @@ TARGET = ALL_TARGETS[TARGET_ID]
 
 CHANNELS = ALL_EEG_CHANNELS
 
-N_INTERVALS_PER_PERSON_PER_CLASS = 20
+N_INTERVALS_PER_PERSON_PER_CLASS = 10
 TRAIN_VAL_SAME_PEOPLE = True
 N_PEOPLE = 1
 
@@ -56,16 +57,15 @@ ALL_CLASSIFIERS = {
     'GradientBoosting': GradientBoostingClassifier(random_state=SEED),
     'AdaBoost': AdaBoostClassifier(algorithm='SAMME', random_state=SEED),
 }
-CLASSIFIER_NAME = 'LogisticRegression'
+CLASSIFIER_NAME = 'KNeighbors'
 CLASSIFIER = ALL_CLASSIFIERS[CLASSIFIER_NAME]
 
 # Experiment goal
 
 ALL_EXPERIMENT_GOALS = [
-    'Configure embeddings',
     'Fix some pairs of (train, validation) sets'
     'Compare classifiers',
     'Determine the most informative channels'
 ]
-EXPERIMENT_GOAL_ID = 0
+EXPERIMENT_GOAL_ID = 1
 EXPERIMENT_GOAL = ALL_EXPERIMENT_GOALS[EXPERIMENT_GOAL_ID]
