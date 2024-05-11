@@ -6,7 +6,8 @@ import pandas as pd
 import numpy as np
 from gtda.time_series import TakensEmbedding
 from gtda.homology import VietorisRipsPersistence
-from gtda.diagrams import Amplitude, PersistenceEntropy, NumberOfPoints, ComplexPolynomial
+from gtda.diagrams import Amplitude, PersistenceEntropy, NumberOfPoints
+from sklearn.decomposition import PCA
 import hashlib
 import pickle
 
@@ -40,7 +41,7 @@ def read_raw_data(n_people=None):
         raw_data.append((idx, raw))
     return raw_data
 
-def get_processed_data(raw_data=None):
+def extract_intervals(raw_data=None):
     if raw_data is None:
         raw_data = read_raw_data()
 
@@ -65,10 +66,32 @@ def get_processed_data(raw_data=None):
         
     df = pd.DataFrame({'id': all_ids, 'interval': all_intervals, 'label': all_labels})
 
+    return df
+
+def compute_point_clouds(intervals=None):
+    if intervals is None:
+        df = extract_intervals()
+    else:
+        df = intervals.copy(deep=True)
+
     TE = TakensEmbedding(time_delay=TIME_DELAY, dimension=DIMENSION, stride=STRIDE)
     TE.fit([])
     df['point_cloud'] = df.apply(lambda row: TE.transform(row['interval']), axis=1)
-    df = df[['id', 'interval', 'point_cloud', 'label']]
+
+    pca = PCA(n_components=3)
+
+    def transform_point_cloud(point_clouds):
+        projected_clouds = []
+        for i in range(point_clouds.shape[0]):
+            point_cloud = point_clouds[i]
+            projected_cloud = pca.fit_transform(point_cloud)
+            projected_clouds.append(projected_cloud)
+        return np.stack(projected_clouds)
+    
+    df['point_cloud'] = df['point_cloud'].apply(transform_point_cloud)
+
+    df = df.drop(columns=['interval'])
+
     return df
 
 def prepare_data(df, 
@@ -130,11 +153,10 @@ def get_training_data(df=None):
         df_val = pd.read_pickle(val_file)
     else:
         if df is None:
-            df = get_processed_data()
+            df = extract_intervals()
         else:
             df = df.copy(deep=True)
 
-        df = df.drop(columns=['interval'])
         df['ASMR'] = np.char.find(df['label'].values.astype(str), 'ASMR') >= 0
 
         np.random.seed(SEED)
@@ -195,6 +217,9 @@ def get_training_data(df=None):
                     
                     val_sample = group.sample(N_INTERVALS_PER_PERSON_PER_CLASS, replace=False)
                     df_val = pd.concat([df_val, val_sample], ignore_index=True)
+
+        df_train = compute_point_clouds(df_train)
+        df_val = compute_point_clouds(df_val)
 
         vietoris_rips = VietorisRipsPersistence(homology_dimensions=HOMOLOGY_DIMENSIONS)
         amplitude = Amplitude()
