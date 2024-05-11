@@ -44,7 +44,7 @@ TARGET = ALL_TARGETS[TARGET_ID]
 
 CHANNELS = ALL_EEG_CHANNELS
 
-N_INTERVALS_PER_PERSON_PER_CLASS = 10
+N_INTERVALS_PER_PERSON_PER_CLASS = 20
 TRAIN_VAL_SAME_PEOPLE = True
 N_PEOPLE = 1
 
@@ -55,7 +55,6 @@ ALL_CLASSIFIERS = {
     'RandomForest': RandomForestClassifier(random_state=SEED),
     'GradientBoosting': GradientBoostingClassifier(random_state=SEED),
     'AdaBoost': AdaBoostClassifier(algorithm='SAMME', random_state=SEED),
-    'GaussianNB': GaussianNB()
 }
 CLASSIFIER_NAME = 'LogisticRegression'
 CLASSIFIER = ALL_CLASSIFIERS[CLASSIFIER_NAME]
