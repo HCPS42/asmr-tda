@@ -52,28 +52,26 @@ TARGET = ALL_TARGETS[TARGET_ID]
 
 CHANNELS = ALL_EEG_CHANNELS
 
-N_INTERVALS_PER_PERSON_PER_CLASS = 10
+N_INTERVALS_PER_PERSON_PER_CLASS = 50
 TRAIN_VAL_SAME_PEOPLE = True
-N_PEOPLE = 1
+N_PEOPLE = 10
 
 ALL_CLASSIFIERS = {
+    'DecisionTree': DecisionTreeClassifier(random_state=SEED),
     'LogisticRegression': LogisticRegression(random_state=SEED),
-    'SVC': SVC(probability=True),
     'KNeighbors': KNeighborsClassifier(),
     'RandomForest': RandomForestClassifier(random_state=SEED),
     'GradientBoosting': GradientBoostingClassifier(random_state=SEED),
     'AdaBoost': AdaBoostClassifier(algorithm='SAMME', random_state=SEED),
-    'DecisionTreeClassifier': DecisionTreeClassifier(random_state=SEED)
 }
-CLASSIFIER_NAME = 'LogisticRegression'
+CLASSIFIER_NAME = 'DecisionTree'
 CLASSIFIER = ALL_CLASSIFIERS[CLASSIFIER_NAME]
 
 # Experiment goal
 
 ALL_EXPERIMENT_GOALS = [
-    'Example',
+    'Try some pairs of (train, validation) sets',
     'Try different strides',
-    'Fix some pairs of (train, validation) sets',
     'Compare classifiers',
     'Determine the most informative channels',
 ]
