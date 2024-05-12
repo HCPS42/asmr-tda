@@ -26,6 +26,7 @@ def read_raw_data(n_people=None):
     if n_people is not None:
         filenames = sorted(filenames, key=lambda filename: SORTED_IDS.index(filename[1:4]))
         filenames = filenames[:n_people]
+        file_paths = [f'{EEG_PATH}/{filename}' for filename in filenames]
     raw_data = []
     for path, filename in zip(file_paths, filenames):
         with warnings.catch_warnings():
@@ -153,12 +154,11 @@ def get_training_data(df=None):
 
         if TRAIN_VAL_SAME_PEOPLE:
             unique_people = df['id'].unique()
-            selected_people = np.random.choice(unique_people, size=N_PEOPLE, replace=False)
 
             df_train = pd.DataFrame()
             df_val = pd.DataFrame()
 
-            for person in selected_people:
+            for person in unique_people:
                 df_person = df[df['id'] == person]
                 
                 grouped = df_person.groupby(TARGET)
@@ -175,7 +175,6 @@ def get_training_data(df=None):
                         
                     df_train = pd.concat([df_train, train], ignore_index=True)
                     df_val = pd.concat([df_val, val], ignore_index=True)
-
         else:
             unique_people = df['id'].unique()
             np.random.shuffle(unique_people)
