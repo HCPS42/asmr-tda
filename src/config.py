@@ -3,6 +3,7 @@ from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, AdaBoostClassifier
 from sklearn.naive_bayes import GaussianNB
+from sklearn.tree import DecisionTreeClassifier
 
 # Random seed
 
@@ -16,7 +17,13 @@ IMAGE_PATH = '../images'
 EMBEDDING_STATISTICS = 'embedding_stats.pkl'
 EXPERIMENTS_RESULTS_FILE = 'results.pkl'
 
-INTERACTIVE = True
+SORTED_IDS = ['067', '061', '007', '039', '057',
+           '064', '013', '042', '062', '048',
+           '081', '053', '044', '038', '002',
+           '056', '051', '069', '055', '023',
+           '016', '040', '059', '018', '017'] # IDs sorted by minimum counts of ASMR True/False intervals
+
+INTERACTIVE = False
 
 # EEG settings
 
@@ -56,16 +63,19 @@ ALL_CLASSIFIERS = {
     'RandomForest': RandomForestClassifier(random_state=SEED),
     'GradientBoosting': GradientBoostingClassifier(random_state=SEED),
     'AdaBoost': AdaBoostClassifier(algorithm='SAMME', random_state=SEED),
+    'DecisionTreeClassifier': DecisionTreeClassifier(random_state=SEED)
 }
-CLASSIFIER_NAME = 'KNeighbors'
+CLASSIFIER_NAME = 'LogisticRegression'
 CLASSIFIER = ALL_CLASSIFIERS[CLASSIFIER_NAME]
 
 # Experiment goal
 
 ALL_EXPERIMENT_GOALS = [
-    'Fix some pairs of (train, validation) sets'
+    'Example',
+    'Try different strides',
+    'Fix some pairs of (train, validation) sets',
     'Compare classifiers',
-    'Determine the most informative channels'
+    'Determine the most informative channels',
 ]
-EXPERIMENT_GOAL_ID = 1
+EXPERIMENT_GOAL_ID = 0
 EXPERIMENT_GOAL = ALL_EXPERIMENT_GOALS[EXPERIMENT_GOAL_ID]

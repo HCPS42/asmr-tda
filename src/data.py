@@ -13,25 +13,19 @@ import pickle
 
 from config import (
     SEED,
-    DATA_PATH, EEG_PATH, ALL_EEG_CHANNELS,
+    DATA_PATH, EEG_PATH, SORTED_IDS, ALL_EEG_CHANNELS,
     TIME_DELAY, DIMENSION, STRIDE,
     CHANNELS, ALL_TARGETS, TARGET, N_INTERVALS_PER_PERSON_PER_CLASS, TRAIN_VAL_SAME_PEOPLE, N_PEOPLE,
     HOMOLOGY_DIMENSIONS
 )
 
+
 def read_raw_data(n_people=None):
     file_paths = glob.glob(f'{EEG_PATH}/*.set')
-    filenames = [os.path.basename(file).replace('P', 'P') for file in file_paths]
-    if n_people is None:
-        if TRAIN_VAL_SAME_PEOPLE:
-            n_people = N_PEOPLE
-        else:
-            n_people = 2 * N_PEOPLE
-    if n_people == -1:
-        n_people = len(filenames)
-    else:
-        np.random.seed(SEED)
-        filenames = np.random.choice(filenames, size=n_people, replace=False)
+    filenames = [os.path.basename(file) for file in file_paths]
+    if n_people is not None:
+        filenames = sorted(filenames, key=lambda filename: SORTED_IDS.index(filename[1:4]))
+        filenames = filenames[:n_people]
     raw_data = []
     for path, filename in zip(file_paths, filenames):
         with warnings.catch_warnings():
@@ -41,10 +35,7 @@ def read_raw_data(n_people=None):
         raw_data.append((idx, raw))
     return raw_data
 
-def extract_intervals(raw_data=None):
-    if raw_data is None:
-        raw_data = read_raw_data()
-
+def extract_intervals(raw_data):
     all_ids = []
     all_intervals = []
     all_labels = []
@@ -66,15 +57,14 @@ def extract_intervals(raw_data=None):
         
     df = pd.DataFrame({'id': all_ids, 'interval': all_intervals, 'label': all_labels})
 
+    df['ASMR'] = np.char.find(df['label'].values.astype(str), 'ASMR') >= 0
+
     return df
 
-def compute_point_clouds(intervals=None):
-    if intervals is None:
-        df = extract_intervals()
-    else:
-        df = intervals.copy(deep=True)
+def compute_point_clouds(intervals, stride=STRIDE):
+    df = intervals.copy(deep=True)
 
-    TE = TakensEmbedding(time_delay=TIME_DELAY, dimension=DIMENSION, stride=STRIDE)
+    TE = TakensEmbedding(time_delay=TIME_DELAY, dimension=DIMENSION, stride=stride)
     TE.fit([])
     df['point_cloud'] = df.apply(lambda row: TE.transform(row['interval']), axis=1)
 
@@ -153,11 +143,11 @@ def get_training_data(df=None):
         df_val = pd.read_pickle(val_file)
     else:
         if df is None:
-            df = extract_intervals()
+            n_people = N_PEOPLE if TRAIN_VAL_SAME_PEOPLE else 2 * N_PEOPLE
+            raw_data = read_raw_data(n_people)
+            df = extract_intervals(raw_data)
         else:
             df = df.copy(deep=True)
-
-        df['ASMR'] = np.char.find(df['label'].values.astype(str), 'ASMR') >= 0
 
         np.random.seed(SEED)
 

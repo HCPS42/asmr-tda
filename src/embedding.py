@@ -14,7 +14,7 @@ def get_embedding_statistics():
     if os.path.exists(filename):
         return pd.read_pickle(filename)
 
-    raw_data = read_raw_data(n_people=-1)
+    raw_data = read_raw_data()
     df = extract_intervals(raw_data)
 
     df = df.groupby(['id', 'label']).sample(2, random_state=SEED).reset_index(drop=True)
