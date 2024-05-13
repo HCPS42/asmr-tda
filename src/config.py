@@ -50,9 +50,10 @@ ALL_TARGETS = ['label', 'ASMR']
 TARGET_ID = 1
 TARGET = ALL_TARGETS[TARGET_ID]
 
-CHANNELS = ALL_EEG_CHANNELS
+CHANNELS = ['Fp1', 'Fp2', 'AF3', 'AF4', 'Fz', 'F1', 'F2', 'F3', 'F4',
+            'T7', 'T8', 'TP7', 'TP8', 'O1', 'O2', 'Oz', 'P3', 'P4', 'Pz']
 
-N_INTERVALS_PER_PERSON_PER_CLASS = 50
+N_INTERVALS_PER_PERSON_PER_CLASS = 45
 TRAIN_VAL_SAME_PEOPLE = True
 N_PEOPLE = 10
 
@@ -64,7 +65,7 @@ ALL_CLASSIFIERS = {
     'GradientBoosting': GradientBoostingClassifier(random_state=SEED),
     'AdaBoost': AdaBoostClassifier(algorithm='SAMME', random_state=SEED),
 }
-CLASSIFIER_NAME = 'DecisionTree'
+CLASSIFIER_NAME = 'LogisticRegression'
 CLASSIFIER = ALL_CLASSIFIERS[CLASSIFIER_NAME]
 
 # Experiment goal
@@ -73,7 +74,8 @@ ALL_EXPERIMENT_GOALS = [
     'Try some pairs of (train, validation) sets',
     'Try different strides',
     'Compare classifiers',
-    'Determine the most informative channels',
+    'Try different homology dimensions',
+    'Try different channels',
 ]
-EXPERIMENT_GOAL_ID = 0
+EXPERIMENT_GOAL_ID = 2
 EXPERIMENT_GOAL = ALL_EXPERIMENT_GOALS[EXPERIMENT_GOAL_ID]
