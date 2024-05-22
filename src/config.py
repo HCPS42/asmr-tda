@@ -28,5 +28,5 @@ STRIDE = 10
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 VAL_SIZE = 0.2
-BATCH_SIZE = 256
+BATCH_SIZE = 32
 NUM_EPOCHS = 100

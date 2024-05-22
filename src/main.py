@@ -35,7 +35,7 @@ if __name__ == '__main__':
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
-    model = models.resnet50(weights=None)
+    model = models.resnet18(weights=None)
     num_features = model.fc.in_features
     model.fc = nn.Linear(num_features, 1)
     model.to(DEVICE)

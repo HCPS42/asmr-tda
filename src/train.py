@@ -11,6 +11,7 @@ def train_epoch(model, criterion, optimizer, data_loader):
     running_loss = 0.0
     running_corrects = 0
     epoch_size = 0
+    batch = 0
 
     for inputs, labels in tqdm(data_loader, desc='Training'):
         inputs = inputs.to(DEVICE)
@@ -32,7 +33,10 @@ def train_epoch(model, criterion, optimizer, data_loader):
         running_corrects += corrects
         epoch_size += inputs.size(0)
 
-        wandb.log({'train_loss': loss.item(), 'train_accuracy': corrects / inputs.size(0)})
+        if batch % 10 == 0:
+            wandb.log({'train_loss': loss.item(), 'train_accuracy': corrects / inputs.size(0)})
+
+        batch += 1
 
     loss = running_loss / epoch_size
     accuracy = running_corrects.double() / epoch_size
