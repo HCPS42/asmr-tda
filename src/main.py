@@ -23,14 +23,20 @@ if __name__ == '__main__':
     df = load_diagram_images()
     train_df, val_df = train_test_split(df, test_size=VAL_SIZE, random_state=42)
 
-    transform = transforms.Compose([
+    train_dataset = CustomDataset(train_df, transforms.Compose([
+        transforms.Lambda(lambda x: x.convert("RGB")),
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomRotation(10),
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ]))
+
+    val_dataset = CustomDataset(val_df, transforms.Compose([
         transforms.Lambda(lambda x: x.convert("RGB")),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-    ])
-
-    train_dataset = CustomDataset(train_df, transform)
-    val_dataset = CustomDataset(val_df, transform)
+    ]))
     
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
