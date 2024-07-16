@@ -121,18 +121,14 @@ def load_diagram_images():
     return df
 
 class CustomDataset(Dataset):
-    def __init__(self, df, transform):
+    def __init__(self, df):
         self.df = df
-        self.transform = transform
-    
+
     def __len__(self):
         return len(self.df)
     
     def __getitem__(self, idx):
-        image = self.df.iloc[idx]['diagram_image']
-        image = (image / image.max() * 255).astype(np.uint8)
-        image = Image.fromarray(image)
-        image = self.transform(image)
+        interval = self.df.iloc[idx]['interval']
         label = self.df.iloc[idx]['ASMR']
         label = torch.tensor(label, dtype=torch.float32)
-        return image, label
+        return interval, label

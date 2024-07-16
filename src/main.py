@@ -8,9 +8,10 @@ from timeit import default_timer as timer
 import wandb
 import os
 
-from data import load_diagram_images, CustomDataset
+from data import load_intervals, CustomDataset
 from train import train_epoch, evaluate
 from config import SEED, CHECKPOINTS_PATH, DEVICE, VAL_SIZE, BATCH_SIZE, NUM_EPOCHS
+from model import Model
 
 
 if __name__ == '__main__':
@@ -20,30 +21,17 @@ if __name__ == '__main__':
 
     torch.manual_seed(SEED)
 
-    df = load_diagram_images()
+    df = load_intervals()
     train_df, val_df = train_test_split(df, test_size=VAL_SIZE, random_state=42)
 
-    train_dataset = CustomDataset(train_df, transforms.Compose([
-        transforms.Lambda(lambda x: x.convert("RGB")),
-        transforms.RandomHorizontalFlip(),
-        transforms.RandomRotation(10),
-        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
-        transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-    ]))
-
-    val_dataset = CustomDataset(val_df, transforms.Compose([
-        transforms.Lambda(lambda x: x.convert("RGB")),
-        transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-    ]))
+    train_dataset = CustomDataset(train_df)
+    val_dataset = CustomDataset(val_df)
     
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
-    model = models.resnet18(weights=None)
-    num_features = model.fc.in_features
-    model.fc = nn.Linear(num_features, 1)
+    input_size = 64 * 1024
+    model = Model(input_size=input_size, num_classes=1)
     model.to(DEVICE)
 
     criterion = nn.BCEWithLogitsLoss()
