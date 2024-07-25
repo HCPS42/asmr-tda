@@ -6,11 +6,11 @@ class Model(nn.Module):
     def __init__(self, num_classes):
         super(Model, self).__init__()
         self.flatten = nn.Flatten()
-        self.fc1 = nn.Linear(64*30*2, 512)
+        self.fc1 = nn.Linear(64*30*2, 1024)
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(0.5)
-        self.fc2 = nn.Linear(512, 256)
-        self.fc3 = nn.Linear(256, num_classes)
+        self.fc2 = nn.Linear(1024, 512)
+        self.fc3 = nn.Linear(512, num_classes)
 
     def forward(self, x):
         x = x.to(torch.float)
