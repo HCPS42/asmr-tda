@@ -48,7 +48,6 @@ def extract_intervals(raw_data):
         all_intervals.extend(intervals)
         all_labels.extend(labels)
     df = pd.DataFrame({'id': all_ids, 'interval': all_intervals, 'label': all_labels})
-    df['ASMR'] = np.char.find(df['label'].values.astype(str), 'ASMR') >= 0
     return df
 
 def load_intervals():
@@ -79,6 +78,7 @@ def load_point_clouds():
         return pd.read_pickle(filename)
     df = load_intervals()
     df['point_cloud'] = df['interval'].apply(lambda x: takens_embedding(x))
+    df = df[['id', 'point_cloud', 'label']]
     df.to_pickle(filename)
     return df
 
@@ -96,27 +96,52 @@ def normalize_diagrams(diagrams):
     return normalized
 
 def process_point_cloud(point_cloud):
-    h1_diagrams = []
+    all_diagrams = []
     for i in range(point_cloud.shape[0]):
         channel = point_cloud[i]
-        rips = Rips(maxdim=1, verbose=False)
+        rips = Rips(maxdim=2, verbose=False)
         diagrams = rips.fit_transform(channel)
-        diagrams = normalize_diagrams(diagrams)
-        h1_diagrams.append(diagrams[1])    
-    pimgr = PersistenceImager(pixel_size=0.05)
-    images = pimgr.transform(h1_diagrams)
-    images = np.array(images)
-    reshaped_images = images.reshape(8, 8, 20, 20)
-    grid_image = np.block([[reshaped_images[i, j] for j in range(8)] for i in range(8)])
-    return grid_image
+        all_diagrams.append(diagrams)    
+    return all_diagrams
 
-def load_diagram_images():
-    filename = f'{DATA_PATH}/diagram_images.pkl'
+def load_diagrams():
+    filename = f'{DATA_PATH}/diagrams.pkl'
     if os.path.exists(filename):
         return pd.read_pickle(filename)
     df = load_point_clouds()
-    df['diagram_image'] = df['point_cloud'].apply(lambda x: process_point_cloud(x))
-    df = df[['diagram_image', 'ASMR']]
+    df['diagram'] = df['point_cloud'].apply(lambda x: process_point_cloud(x))
+    df = df[['id', 'diagram', 'label']]
+    df.to_pickle(filename)
+    return df
+
+def process_diagram(diagram):
+    diagram = diagram.copy()
+    all_features = []
+    for channel in diagram:
+        features = []
+        for homologies in channel:
+            if homologies.size == 0:
+                homologies = np.array([[0, 0]])
+            differences = homologies[:, 1] - homologies[:, 0]
+            sorted_indices = np.argsort(-differences)
+            sorted_homologies = homologies[sorted_indices]
+            if len(sorted_homologies) >= 10:
+                result = sorted_homologies[:10]
+            else:
+                repeats = 10 // len(sorted_homologies) + 1
+                bootstrapped = np.tile(sorted_homologies, (repeats, 1))
+                result = bootstrapped[:10]
+            features.extend(result)
+        all_features.append(features)
+    return np.array(all_features)
+
+def load_features():
+    filename = f'{DATA_PATH}/features.pkl'
+    if os.path.exists(filename):
+        return pd.read_pickle(filename)
+    df = load_diagrams()
+    df['features'] = df['diagram'].apply(lambda x: process_diagram(x))
+    df = df[['id', 'features', 'label']]
     df.to_pickle(filename)
     return df
 
@@ -128,7 +153,7 @@ class CustomDataset(Dataset):
         return len(self.df)
     
     def __getitem__(self, idx):
-        interval = self.df.iloc[idx]['interval']
+        features = self.df.iloc[idx]['features']
         label = self.df.iloc[idx]['ASMR']
         label = torch.tensor(label, dtype=torch.float32)
-        return interval, label
+        return features, label
