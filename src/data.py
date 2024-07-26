@@ -105,7 +105,7 @@ def process_diagram(diagram):
     diagram = diagram.copy()
     all_features = []
     for channel in diagram:
-        homologies = channel[1]
+        homologies = channel[1] # H1 homologies
         if homologies.size == 0:
             homologies = np.array([[0, 0]])
         differences = homologies[:, 1] - homologies[:, 0]
