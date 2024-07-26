@@ -24,7 +24,6 @@ if __name__ == '__main__':
 
     df = load_features()
     df['ASMR'] = np.char.find(df['label'].values.astype(str), 'ASMR') >= 0
-    df['features'] = df['features'].apply(lambda x: np.where(np.isinf(x), 0, x))
 
     train_df, val_df = train_test_split(df, test_size=VAL_SIZE, random_state=42)
 

@@ -127,6 +127,11 @@ def load_features():
     df = load_diagrams()
     df['features'] = df['diagram'].apply(lambda x: process_diagram(x))
     df = df[['id', 'features', 'label']]
+    df['features'] = df['features'].apply(lambda x: np.where(np.isinf(x), 0, x))
+    all_features = np.concatenate(df['features'].values)
+    global_mean = all_features.mean()
+    global_std = all_features.std()
+    df['features'] = df['features'].apply(lambda x: (x - global_mean) / global_std)
     df.to_pickle(filename)
     return df
 
