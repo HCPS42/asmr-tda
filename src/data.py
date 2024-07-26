@@ -82,19 +82,6 @@ def load_point_clouds():
     df.to_pickle(filename)
     return df
 
-def normalize_diagrams(diagrams):
-    diagrams = diagrams.copy()
-    global_max = 0
-    for diagram in diagrams:
-        max_non_inf = np.max(diagram[np.isfinite(diagram)])
-        diagram[np.isinf(diagram)] = max_non_inf
-        global_max = max(global_max, max_non_inf)
-    normalized = []
-    for diagram in diagrams:
-        diagram /= global_max
-        normalized.append(diagram)
-    return normalized
-
 def process_point_cloud(point_cloud):
     all_diagrams = []
     for i in range(point_cloud.shape[0]):
@@ -118,20 +105,18 @@ def process_diagram(diagram):
     diagram = diagram.copy()
     all_features = []
     for channel in diagram:
-        features = []
-        for homologies in channel:
-            if homologies.size == 0:
-                homologies = np.array([[0, 0]])
-            differences = homologies[:, 1] - homologies[:, 0]
-            sorted_indices = np.argsort(-differences)
-            sorted_homologies = homologies[sorted_indices]
-            if len(sorted_homologies) >= 10:
-                result = sorted_homologies[:10]
-            else:
-                repeats = 10 // len(sorted_homologies) + 1
-                bootstrapped = np.tile(sorted_homologies, (repeats, 1))
-                result = bootstrapped[:10]
-            features.extend(result)
+        homologies = channel[1]
+        if homologies.size == 0:
+            homologies = np.array([[0, 0]])
+        differences = homologies[:, 1] - homologies[:, 0]
+        sorted_indices = np.argsort(-differences)
+        sorted_homologies = homologies[sorted_indices]
+        if len(sorted_homologies) >= 30:
+            features = sorted_homologies[:30]
+        else:
+            repeats = 30 // len(sorted_homologies) + 1
+            bootstrapped = np.tile(sorted_homologies, (repeats, 1))
+            features = bootstrapped[:30]
         all_features.append(features)
     return np.array(all_features)
 
