@@ -23,6 +23,7 @@ if __name__ == '__main__':
     torch.manual_seed(SEED)
 
     df = load_features()
+    df = df[df['label'].isin(['B1(Pre_Baseline)', 'B2(Pre_Relaxed)', 'B4(StrongASMR)'])]
     df['ASMR'] = np.char.find(df['label'].values.astype(str), 'ASMR') >= 0
 
     train_df, val_df = train_test_split(df, test_size=VAL_SIZE, random_state=42)
