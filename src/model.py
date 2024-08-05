@@ -3,7 +3,7 @@ import torch.nn as nn
 
 
 class Model(nn.Module):
-    def __init__(self, num_classes):
+    def __init__(self):
         super(Model, self).__init__()
         self.flatten = nn.Flatten()
         self.fc1 = nn.Linear(64*30*2, 32)
@@ -12,7 +12,7 @@ class Model(nn.Module):
         self.dropout = nn.Dropout(0.5)
         self.fc2 = nn.Linear(32, 8)
         self.bn2 = nn.BatchNorm1d(8)
-        self.fc3 = nn.Linear(8, num_classes)
+        self.fc3 = nn.Linear(8, 1)
 
     def forward(self, x):
         x = x.to(torch.float)

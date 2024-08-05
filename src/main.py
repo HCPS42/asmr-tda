@@ -29,7 +29,7 @@ if __name__ == '__main__':
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
-    model = Model(num_classes=1)
+    model = Model()
     model.to(DEVICE)
 
     criterion = nn.BCEWithLogitsLoss()
