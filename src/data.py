@@ -127,12 +127,19 @@ def load_features():
     df = load_diagrams()
     df['features'] = df['diagram'].apply(lambda x: process_diagram(x))
     df = df[['id', 'features', 'label']]
+    df.to_pickle(filename)
+    return df
+
+def load_dataset():
+    df = load_features()
     df['features'] = df['features'].apply(lambda x: np.where(np.isinf(x), 0, x))
     all_features = np.concatenate(df['features'].values)
     global_mean = all_features.mean()
     global_std = all_features.std()
     df['features'] = df['features'].apply(lambda x: (x - global_mean) / global_std)
-    df.to_pickle(filename)
+    
+    df = df[df['label'].isin(['B1(Pre_Baseline)', 'B2(Pre_Relaxed)', 'B4(StrongASMR)'])].reset_index(drop=True)
+    df['ASMR'] = np.char.find(df['label'].values.astype(str), 'ASMR') >= 0
     return df
 
 class CustomDataset(Dataset):

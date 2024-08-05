@@ -1,5 +1,7 @@
 import torch
 from tqdm import tqdm
+from sklearn.metrics import f1_score
+
 
 from config import DEVICE
 
@@ -10,6 +12,8 @@ def train_epoch(model, criterion, optimizer, data_loader):
     running_loss = 0.0
     running_corrects = 0
     epoch_size = 0
+    all_labels = []
+    all_preds = []
 
     for inputs, labels in tqdm(data_loader, desc='Training'):
         inputs = inputs.to(DEVICE)
@@ -31,10 +35,14 @@ def train_epoch(model, criterion, optimizer, data_loader):
         running_corrects += corrects
         epoch_size += inputs.size(0)
 
+        all_labels.extend(labels.cpu().numpy())
+        all_preds.extend(preds.cpu().numpy())
+
     loss = running_loss / epoch_size
     accuracy = running_corrects.double() / epoch_size
+    f1 = f1_score(all_labels, all_preds)
 
-    return loss, accuracy
+    return loss, accuracy, f1
 
 def evaluate(model, criterion, data_loader):
     model.eval()
@@ -42,6 +50,8 @@ def evaluate(model, criterion, data_loader):
     running_loss = 0.0
     running_corrects = 0
     epoch_size = 0
+    all_labels = []
+    all_preds = []
 
     for inputs, labels in tqdm(data_loader, desc='Validation'):
         inputs = inputs.to(DEVICE)
@@ -56,7 +66,11 @@ def evaluate(model, criterion, data_loader):
         running_corrects += torch.sum(preds == labels.data)
         epoch_size += inputs.size(0)
 
+        all_labels.extend(labels.cpu().numpy())
+        all_preds.extend(preds.cpu().numpy())
+
     loss = running_loss / epoch_size
     accuracy = running_corrects.double() / epoch_size
+    f1 = f1_score(all_labels, all_preds)
 
-    return loss, accuracy
+    return loss, accuracy, f1

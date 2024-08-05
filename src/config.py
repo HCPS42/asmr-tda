@@ -9,7 +9,6 @@ SEED = 42
 
 DATA_PATH = '../data'
 EEG_PATH = f'{DATA_PATH}/osfstorage-archive/EEG Data'
-CHECKPOINTS_PATH = '../checkpoints'
 
 SORTED_IDS = ['067', '061', '007', '039', '057',
            '064', '013', '042', '062', '048',
@@ -29,4 +28,4 @@ DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 VAL_SIZE = 0.2
 BATCH_SIZE = 32
-NUM_EPOCHS = 50
+NUM_EPOCHS = 10
